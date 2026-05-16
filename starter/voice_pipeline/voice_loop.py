@@ -38,7 +38,8 @@ SILENCE_TIMEOUT_S = 2.0  # consecutive silence to end an utterance
 # ---------------------------------------------------------------------------
 # Text mode — reference implementation (read this first)
 # ---------------------------------------------------------------------------
-async def run_text_mode(session: Session, persona: ManagerPersona, max_turns: int = 6) -> None:
+# increase max turns so that condense_history logic gets some leeway
+async def run_text_mode(session: Session, persona: ManagerPersona, max_turns: int = 10) -> None:
     """Conversation via stdin/stdout. Same trace-event shape as voice mode."""
     print("Text mode. Type a message to Alasdair (pub manager); blank line to quit.")
     print(f"Session: {session.session_id}")

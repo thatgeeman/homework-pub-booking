@@ -26,6 +26,7 @@ from rasa_sdk import Action, Tracker
 from rasa_sdk.events import SlotSet
 from rasa_sdk.executor import CollectingDispatcher
 
+# these are rules for the homework, not arbitrary limits
 MAX_PARTY_SIZE_FOR_AUTO_BOOKING = 8
 MAX_DEPOSIT_FOR_AUTO_BOOKING_GBP = 300
 
@@ -59,6 +60,7 @@ class ActionValidateBooking(Action):
     """
 
     def name(self) -> str:
+        # also referenced in data/flows.yaml and domain.yml
         return "action_validate_booking"
 
     def run(
@@ -86,6 +88,7 @@ class ActionValidateBooking(Action):
             except (TypeError, ValueError):
                 return None
 
+        # see domain.yml slots section for the types we're trying to match here
         slot_events: list[dict[str, Any]] = [
             SlotSet("venue_id", str(venue_id) if venue_id is not None else None),
             SlotSet("date", str(date) if date is not None else None),
@@ -130,6 +133,8 @@ class ActionValidateBooking(Action):
             .upper()
         )
 
+        # referenced by slots.validation_error in flows.yaml
+        # and in domain.yml's booking_reference slot's and validation_error slot's
         return slot_events + [
             SlotSet("validation_error", None),
             SlotSet("booking_reference", ref),

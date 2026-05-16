@@ -27,4 +27,6 @@ real model.
 ## Citations
 
 - starter/voice_pipeline/voice_loop.py — run_voice_mode
+- starter/voice_pipeline/voice_loop.py — run_text_mode
 - starter/voice_pipeline/manager_persona.py — LLM-backed persona
+- sessions/sess_37e2828f3efe/logs/trace.jsonl — text mode trace events

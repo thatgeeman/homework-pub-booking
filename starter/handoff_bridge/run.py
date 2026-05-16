@@ -30,7 +30,7 @@ def _build_fake_client_two_rounds() -> FakeLLMClient:
     plan_r1 = json.dumps(
         [
             {
-                "id": "sg_1",
+                "id": "sg_1",  # sub goal 1
                 "description": "find venue near haymarket for 12",
                 "success_criterion": "candidate identified",
                 "estimated_tool_calls": 2,
@@ -43,7 +43,7 @@ def _build_fake_client_two_rounds() -> FakeLLMClient:
     plan_r2 = json.dumps(
         [
             {
-                "id": "sg_1",
+                "id": "sg_1",  # sub goal 1
                 "description": "retry with larger venue after rejection",
                 "success_criterion": "different venue with enough seats",
                 "estimated_tool_calls": 2,
@@ -137,6 +137,7 @@ async def run_scenario(real: bool) -> int:
             server, _thread, mock_url = spawn_mock_rasa(port=5906)
             rasa_half = RasaStructuredHalf(rasa_url=mock_url)
         else:
+            # calls the actual Rasa instance configured in RasaStructuredHalf
             rasa_half = RasaStructuredHalf()
 
         client = _build_fake_client_two_rounds()
@@ -145,6 +146,9 @@ async def run_scenario(real: bool) -> int:
             planner=DefaultPlanner(model="fake", client=client),
             executor=DefaultExecutor(model="fake", client=client, tools=tools),  # type: ignore[arg-type]
         )
+        # for this test, we dont care about the loop half's final plan,
+        # just that it makes the expected tool calls in the expected order
+        # with the expected arguments that the FakeLLMClient is set up to respond to.
         bridge = HandoffBridge(
             loop_half=loop_half,
             structured_half=rasa_half,

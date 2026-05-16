@@ -26,6 +26,7 @@ from pathlib import Path
 from urllib import request as urllib_request
 from urllib.error import HTTPError, URLError
 
+from sovereign_agent import __version__ as sa_version
 from sovereign_agent.discovery import DiscoverySchema
 from sovereign_agent.halves import HalfResult
 from sovereign_agent.halves.structured import StructuredHalf
@@ -53,6 +54,7 @@ class RasaStructuredHalf(StructuredHalf):
         self.rasa_url = rasa_url
         self.sender_id_prefix = sender_id_prefix
         self.request_timeout_s = request_timeout_s
+        self.version = f"0.1.0+sa{sa_version}"  # log sovereign_agent version as well
 
     def discover(self) -> DiscoverySchema:
         return {
@@ -68,7 +70,7 @@ class RasaStructuredHalf(StructuredHalf):
                     "output": {"success": True, "next_action": "complete"},
                 }
             ],
-            "version": "0.1.0",
+            "version": self.version,
             "metadata": {"rasa_url": self.rasa_url},
         }
 

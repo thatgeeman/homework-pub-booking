@@ -1,0 +1,12 @@
+{"event_type": "voice.utterance_in", "actor": "user", "timestamp": "2026-05-15T22:08:38.042181+00:00", "payload": {"text": "Hi", "turn": 0, "mode": "text"}}
+{"event_type": "voice.utterance_out", "actor": "manager", "timestamp": "2026-05-15T22:08:39.021793+00:00", "payload": {"text": "What can I do for ye?", "turn": 0, "mode": "text"}}
+{"event_type": "voice.utterance_in", "actor": "user", "timestamp": "2026-05-15T22:08:44.893153+00:00", "payload": {"text": "book for 7 people", "turn": 1, "mode": "text"}}
+{"event_type": "voice.utterance_out", "actor": "manager", "timestamp": "2026-05-15T22:08:48.020997+00:00", "payload": {"text": "Aye, we can do that. I'll pencil you in. What's the date and time?", "turn": 1, "mode": "text"}}
+{"event_type": "voice.utterance_in", "actor": "user", "timestamp": "2026-05-15T22:08:53.916915+00:00", "payload": {"text": "12th at 20h", "turn": 2, "mode": "text"}}
+{"event_type": "voice.utterance_out", "actor": "manager", "timestamp": "2026-05-15T22:08:55.598153+00:00", "payload": {"text": "Aye, we can do that. I'll pencil you in for 12th at 20h. What's the contact number?", "turn": 2, "mode": "text"}}
+{"event_type": "voice.utterance_in", "actor": "user", "timestamp": "2026-05-15T22:09:00.455021+00:00", "payload": {"text": "1232134", "turn": 3, "mode": "text"}}
+{"event_type": "voice.utterance_out", "actor": "manager", "timestamp": "2026-05-15T22:09:02.425088+00:00", "payload": {"text": "Got it, 1232134. See ye on the 12th.", "turn": 3, "mode": "text"}}
+{"event_type": "voice.utterance_in", "actor": "user", "timestamp": "2026-05-15T22:09:05.319037+00:00", "payload": {"text": "bye", "turn": 4, "mode": "text"}}
+{"event_type": "voice.utterance_out", "actor": "manager", "timestamp": "2026-05-15T22:09:05.736887+00:00", "payload": {"text": "Cheerio.", "turn": 4, "mode": "text"}}
+{"event_type": "voice.utterance_in", "actor": "user", "timestamp": "2026-05-15T22:09:08.670877+00:00", "payload": {"text": "bye", "turn": 5, "mode": "text"}}
+{"event_type": "voice.utterance_out", "actor": "manager", "timestamp": "2026-05-15T22:09:09.831889+00:00", "payload": {"text": "Aye, bye.", "turn": 5, "mode": "text"}}

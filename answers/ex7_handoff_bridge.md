@@ -30,3 +30,4 @@ audit trail.
 
 - starter/handoff_bridge/bridge.py — HandoffBridge.run + helpers
 - starter/handoff_bridge/integrity.py — verify_dataflow
+- sessions/sess_35c2e3ea6b82/logs/trace.jsonl
