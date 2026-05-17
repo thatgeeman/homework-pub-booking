@@ -469,8 +469,7 @@ def build_tool_registry(session: Session) -> ToolRegistry:
     # get_weather — build available-dates index from fixture at registration time
     _weather_fixture = json_loader(_SAMPLE_DATA / "weather.json")
     _weather_index = "; ".join(
-        f"{city}: {', '.join(sorted(dates.keys()))}"
-        for city, dates in _weather_fixture.items()
+        f"{city}: {', '.join(sorted(dates.keys()))}" for city, dates in _weather_fixture.items()
     )
     reg.register(
         _RegisteredTool(
@@ -544,7 +543,8 @@ def build_tool_registry(session: Session) -> ToolRegistry:
 
     def _flyer_verify_args(kwargs: dict) -> tuple[bool, str]:
         missing = [
-            t for t in ("get_weather", "calculate_cost")
+            t
+            for t in ("get_weather", "calculate_cost")
             if not any(r.tool_name == t for r in _TOOL_CALL_LOG)
         ]
         if missing:
