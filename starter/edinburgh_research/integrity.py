@@ -108,9 +108,7 @@ def extract_total_field_raw(text: str) -> list[str]:
     integrity check flag the full value when it is not found in the log.
     """
     stripped = re.sub(r"<[^>]+>", " ", text)
-    matches = re.findall(
-        r"\bTotal\b[^\n:]*:\s*([^\n.]+?)\.?\s*(?:\n|$)", stripped, re.IGNORECASE
-    )
+    matches = re.findall(r"\bTotal\b[^\n:]*:\s*([^\n.]+?)\.?\s*(?:\n|$)", stripped, re.IGNORECASE)
     return [m.strip() for m in matches if m.strip()]
 
 
