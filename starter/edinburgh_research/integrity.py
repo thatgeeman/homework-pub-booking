@@ -82,6 +82,21 @@ def extract_condition_facts(text: str) -> list[str]:
     return [c for c in known if c in tl]
 
 
+def extract_venue_facts(text: str) -> list[str]:
+    """Extract venue names from the flyer — from <p>Venue: ...</p> or data-testid."""
+    # Parse raw HTML to stay within tag boundaries
+    names = re.findall(r"<[^>]*>\s*[Vv]enue:\s*([^<]+?)\s*</", text)
+    testid = re.findall(r'data-testid="venue[_-]?name"[^>]*>([^<]+)<', text, re.IGNORECASE)
+    seen: set[str] = set()
+    result: list[str] = []
+    for n in names + testid:
+        n = n.strip()
+        if n and n.lower() not in seen:
+            seen.add(n.lower())
+            result.append(n)
+    return result
+
+
 def extract_testid_facts(text: str) -> dict[str, str]:
     """For HTML flyers that use data-testid, extract {testid: value} pairs.
 
@@ -119,32 +134,61 @@ def verify_dataflow(flyer_content: str) -> IntegrityResult:
     if not flyer_content or not flyer_content.strip():
         return IntegrityResult(ok=True, summary="no facts to verify (empty flyer)")
 
-    facts_to_check: list[str] = []
-    facts_to_check.extend(extract_money_facts(flyer_content))
-    facts_to_check.extend(extract_temperature_facts(flyer_content))
-    facts_to_check.extend(extract_condition_facts(flyer_content))
-
-    # De-dupe while preserving order
-    seen: set[str] = set()
-    deduped: list[str] = []
-    for f in facts_to_check:
-        key = f.lower().strip()
-        if key not in seen:
-            seen.add(key)
-            deduped.append(f)
-
-    if not deduped:
-        return IntegrityResult(
-            ok=True, summary="no extractable facts in flyer (verified vacuously)"
-        )
-
     verified: list[str] = []
     unverified: list[str] = []
-    for fact in deduped:
-        if fact_appears_in_log(fact):
+
+    # Money facts — check against all records except generate_flyer's own arguments
+    non_flyer_records = [r for r in _TOOL_CALL_LOG if r.tool_name != "generate_flyer"]
+    for fact in extract_money_facts(flyer_content):
+        if fact_appears_in_log(fact, non_flyer_records if non_flyer_records else _TOOL_CALL_LOG):
             verified.append(fact)
         else:
             unverified.append(fact)
+
+    # Temperature facts — must originate from get_weather output, not generate_flyer arguments
+    weather_records = [r for r in _TOOL_CALL_LOG if r.tool_name == "get_weather"]
+    for fact in extract_temperature_facts(flyer_content):
+        if fact_appears_in_log(fact, weather_records if weather_records else _TOOL_CALL_LOG):
+            verified.append(fact)
+        else:
+            unverified.append(fact)
+
+    # Weather condition facts — check against get_weather records
+    for fact in extract_condition_facts(flyer_content):
+        if fact_appears_in_log(fact, weather_records if weather_records else _TOOL_CALL_LOG):
+            verified.append(fact)
+        else:
+            unverified.append(fact)
+
+    # Venue name facts — must appear in venue_search results
+    venue_records = [r for r in _TOOL_CALL_LOG if r.tool_name == "venue_search"]
+    for fact in extract_venue_facts(flyer_content):
+        if fact_appears_in_log(fact, venue_records if venue_records else _TOOL_CALL_LOG):
+            verified.append(fact)
+        else:
+            unverified.append(fact)
+
+    # De-dupe preserving first occurrence
+    seen: set[str] = set()
+    deduped_verified: list[str] = []
+    deduped_unverified: list[str] = []
+    for f in verified:
+        if f.lower().strip() not in seen:
+            seen.add(f.lower().strip())
+            deduped_verified.append(f)
+    for f in unverified:
+        if f.lower().strip() not in seen:
+            seen.add(f.lower().strip())
+            deduped_unverified.append(f)
+
+    verified = deduped_verified
+    unverified = deduped_unverified
+
+    all_facts = verified + unverified
+    if not all_facts:
+        return IntegrityResult(
+            ok=True, summary="no extractable facts in flyer (verified vacuously)"
+        )
 
     if unverified:
         return IntegrityResult(
@@ -173,6 +217,7 @@ __all__ = [
     "extract_money_facts",
     "extract_temperature_facts",
     "extract_testid_facts",
+    "extract_venue_facts",
     "fact_appears_in_log",
     "record_tool_call",
     "verify_dataflow",

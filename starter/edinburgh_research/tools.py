@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import re
 from pathlib import Path
 
 from sovereign_agent.session.directory import Session
@@ -210,32 +211,21 @@ def get_weather(city: str, date: str) -> ToolResult:
 
 
 def get_deposit(total: float, catering_data: dict) -> float:
-    """Helper to determine deposit required based on total and catering_data's deposit_policy."""
+    """Return deposit required given the booking total and deposit policy thresholds."""
     deposit_policy = catering_data.get("deposit_policy", {})
-    deposit_required = ""
-    for rule, _ in deposit_policy.items():
-        if total < 300:
-            # under 300
-            deposit_required = deposit_policy.get(rule, "unknown")
-        elif total < 1000:
-            # between 300 and 1000
-            deposit_required = deposit_policy.get(rule, "unknown")
-        else:
-            # over 1000
-            deposit_required = deposit_policy.get(rule, "unknown")
-    # deposit_required is a string at this point 'deposit_20_percent' or 'no_deposit_required', we need to convert it to a number
-    if deposit_required in ("no_deposit_required", "unknown"):
-        deposit_required_gbp = 0
+    if total < 300:
+        policy_value = deposit_policy.get("under_gbp_300", "no_deposit_required")
+    elif total < 1000:
+        policy_value = deposit_policy.get("gbp_300_to_1000", "no_deposit_required")
     else:
-        import re
+        policy_value = deposit_policy.get("over_gbp_1000", "no_deposit_required")
 
-        match = re.match(r"deposit_(\d+)_percent", deposit_required)
-        if match:
-            percent = int(match.group(1))
-            deposit_required_gbp = total * percent / 100
-        else:
-            raise ToolError("SA_TOOL_INVALID_INPUT", f"Unknown deposit policy: {deposit_required}")
-    return deposit_required_gbp
+    if policy_value == "no_deposit_required":
+        return 0.0
+    match = re.match(r"deposit_(\d+)_percent", policy_value)
+    if match:
+        return total * int(match.group(1)) / 100
+    raise ToolError("SA_TOOL_INVALID_INPUT", f"Unknown deposit policy: {policy_value}")
 
 
 # ---------------------------------------------------------------------------
@@ -290,12 +280,11 @@ def calculate_cost(
     base_per_head = catering_data.get("base_rates_gbp_per_head", {}).get(catering_tier, 0)
     venue_mult = catering_data.get("venue_modifiers", {}).get(venue_id, 0)
     subtotal = base_per_head * venue_mult * party_size * max(1, duration_hours)
-    # deposit is calculated based on subtotal, not total
-    deposit_required_gbp = get_deposit(subtotal, catering_data)
     service = subtotal * catering_data.get("service_charge_percent", 0) / 100
     hire_fee = venue.get("hire_fee_gbp", 0)
     min_spend = venue.get("min_spend_gbp", 0)
     total = subtotal + service + hire_fee + min_spend
+    deposit_required_gbp = get_deposit(total, catering_data)
     output = {
         "venue_id": venue_id,
         "party_size": party_size,
