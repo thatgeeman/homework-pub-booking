@@ -1,0 +1,47 @@
+{
+  "subgoal_id": "sg_2",
+  "success": true,
+  "final_answer": "(handoff requested)",
+  "tool_calls_made": [
+    {
+      "name": "venue_search",
+      "arguments": {
+        "near": "Haymarket",
+        "party_size": 10
+      },
+      "success": true,
+      "summary": "venue_search('Haymarket', party=10): 0 result(s)",
+      "requires_human_approval": false
+    },
+    {
+      "name": "handoff_to_structured",
+      "arguments": {
+        "reason": "No venues found matching Haymarket and party size 10",
+        "context": "Venue search for Edinburgh event planning",
+        "data": {
+          "near": "Haymarket",
+          "party_size": 10,
+          "venue_search_results": {
+            "count": 0
+          }
+        }
+      },
+      "success": true,
+      "summary": "handoff to structured half: No venues found matching Haymarket and party size 10",
+      "requires_human_approval": false
+    }
+  ],
+  "turns_used": 2,
+  "handoff_requested": true,
+  "handoff_payload": {
+    "reason": "No venues found matching Haymarket and party size 10",
+    "context": "Venue search for Edinburgh event planning",
+    "data": {
+      "near": "Haymarket",
+      "party_size": 10,
+      "venue_search_results": {
+        "count": 0
+      }
+    }
+  }
+}

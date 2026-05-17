@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "from_half": "loop",
+  "to_half": "structured",
+  "written_at": "2026-05-17T06:37:49.428685+00:00",
+  "session_id": "sess_0c0714c2793d",
+  "reason": "No venues found within budget and capacity requirements after exhaustive search.",
+  "context": "Attempted to find a venue in multiple areas (Old Town, New Town, Haymarket, Grassmarket, and city-wide) for 50 guests with up to \u00a32000 budget. No results returned. Need to either relax constraints or re-evaluate data source.",
+  "data": {
+    "search_attempts": [
+      {
+        "near": "Old Town",
+        "party_size": 50,
+        "budget_max_gbp": 1500
+      },
+      {
+        "near": "New Town",
+        "party_size": 50,
+        "budget_max_gbp": 1500
+      },
+      {
+        "near": "Haymarket",
+        "party_size": 50,
+        "budget_max_gbp": 1500
+      },
+      {
+        "near": "Grassmarket",
+        "party_size": 50,
+        "budget_max_gbp": 1500
+      },
+      {
+        "near": "Edinburgh",
+        "party_size": 50,
+        "budget_max_gbp": 2000
+      }
+    ],
+    "venues_found": 0
+  },
+  "return_instructions": ""
+}

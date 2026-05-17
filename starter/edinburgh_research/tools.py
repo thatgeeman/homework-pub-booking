@@ -443,7 +443,7 @@ def build_tool_registry(session: Session) -> ToolRegistry:
     reg.register(
         _RegisteredTool(
             name="venue_search",
-            description=f"""Search Edinburgh venues by area, party size and maximum budget. The docstring for the function is: {inspect.getdoc(venue_search)}""",
+            description=f"Search Edinburgh venues by area, party size and maximum budget. Always use the party_size given in the task — do not invent or change it. The docstring for the function is: {inspect.getdoc(venue_search)}",
             fn=venue_search,
             parameters_schema={
                 "type": "object",
@@ -466,11 +466,21 @@ def build_tool_registry(session: Session) -> ToolRegistry:
         )
     )
 
-    # get_weather
+    # get_weather — build available-dates index from fixture at registration time
+    _weather_fixture = json_loader(_SAMPLE_DATA / "weather.json")
+    _weather_index = "; ".join(
+        f"{city}: {', '.join(sorted(dates.keys()))}"
+        for city, dates in _weather_fixture.items()
+    )
     reg.register(
         _RegisteredTool(
             name="get_weather",
-            description=f"Get scripted weather for a city on a YYYY-MM-DD date. The docstring for the function is: {inspect.getdoc(get_weather)}",
+            description=(
+                f"Get scripted weather for a city on a YYYY-MM-DD date. "
+                f"ONLY the following city/date combinations exist in the fixture — "
+                f"any other date will return success=False: {_weather_index}. "
+                f"The docstring for the function is: {inspect.getdoc(get_weather)}"
+            ),
             fn=get_weather,
             parameters_schema={
                 "type": "object",
@@ -485,7 +495,7 @@ def build_tool_registry(session: Session) -> ToolRegistry:
             parallel_safe=True,  # read-only
             examples=[
                 {
-                    "input": {"city": "Edinburgh", "date": "2026-04-25"},
+                    "input": {"city": "edinburgh", "date": "2026-04-25"},
                     "output": {"condition": "cloudy", "temperature_c": 12},
                 }
             ],
@@ -532,6 +542,35 @@ def build_tool_registry(session: Session) -> ToolRegistry:
     def _flyer_adapter(event_details: dict) -> ToolResult:
         return generate_flyer(session, event_details)
 
+    def _flyer_verify_args(kwargs: dict) -> tuple[bool, str]:
+        missing = [
+            t for t in ("get_weather", "calculate_cost")
+            if not any(r.tool_name == t for r in _TOOL_CALL_LOG)
+        ]
+        if missing:
+            return False, (
+                f"You must call {' and '.join(missing)} before generate_flyer. "
+                "Use the results from those tools to fill in the weather and cost fields."
+            )
+
+        # Collect every address returned by venue_search across all calls
+        known_addresses = {
+            venue["address"]
+            for r in _TOOL_CALL_LOG
+            if r.tool_name == "venue_search"
+            for venue in r.output.get("results", [])
+        }
+        if known_addresses:
+            given_address = (kwargs.get("event_details") or {}).get("venue_address", "")
+            if given_address not in known_addresses:
+                return False, (
+                    f"venue_address {given_address!r} was not returned by venue_search. "
+                    f"Use one of the real addresses from your search results: "
+                    f"{', '.join(sorted(known_addresses))}"
+                )
+
+        return True, ""
+
     reg.register(
         _RegisteredTool(
             name="generate_flyer",
@@ -545,6 +584,7 @@ def build_tool_registry(session: Session) -> ToolRegistry:
             returns_schema={"type": "object"},
             is_async=False,
             parallel_safe=False,  # writes a file — MUST be False
+            verify_args=_flyer_verify_args,
             examples=[
                 {
                     "input": {

@@ -1,79 +1,47 @@
-# Ex9 — Reflection
+# Ex9 - Reflection
 
-## Q1 — Planner handoff decision
+## Q1 - Planner failure modes
 
 ### Your answer
 
-In my Ex7 run (session sess_a382a2149fc1), the planner's second
-subgoal was sg_2 "commit the booking under policy rules" with
-assigned_half: "structured". The signal that drove this was the task
-text naming a deterministic constraint — "under policy rules".
-Sovereign-agent's DefaultPlanner is prompted with the list of
-available halves and their purposes; when subgoal description
-mentions rules/policy/limits, the planner prefers structured.
+I hit three distinct failure modes in Ex5, all visible in session traces.
 
-This decision is advisory, not physical. The orchestrator respects
-it only because both halves are wired up. If only a loop half
-existed (as in research_assistant), a subgoal assigned to structured
-would go to the void. That's failure mode #4 from the course slides.
+**Tool-call omission with immediate hallucination (sess_9340a75c968f, trace lines 3-4).** The executor called `venue_search(near="Old Town", party_size=10)` and then jumped directly to `generate_flyer`, skipping `get_weather` and `calculate_cost` entirely. The flyer it produced invented every data point: address "123 Main St, Edinburgh" (fixture: "12 Dalry Rd, Edinburgh EH11 2BG"), date "2023-10-15" (fixture covers 2026 only), temperature 18 C (fixture max 17 C), total £150 (fixture: £556 for the same party/duration/tier). This is the failure mode where the model treats the task as a writing exercise rather than a data-retrieval exercise, fabricating plausible-sounding outputs that bypass the whole tool pipeline. Tickets tk_3039375b and tk_ae317358 both show `state: success` despite no weather or cost data having been retrieved.
 
-The broader lesson: the planner makes an architectural decision
-based on prose interpretation. Put the rules somewhere the LLM
-cannot mis-assign — in the structured half's Python — and prose
-ambiguity no longer matters.
+**Spiral on empty results (sess_0c0714c2793d, trace lines 3-8).** The 235B executor invented `party_size=50` and then called `venue_search` five times across different Edinburgh neighbourhoods (Old Town, New Town, Haymarket, Grassmarket, then Edinburgh city-wide) receiving zero results each time. After the fourth call the spiral-detection stop message fired, but the model ignored it and made a fifth call before giving up with `handoff_to_structured`. The model was stuck in a loop because its internal premise (party of 50) was never challenged - it kept searching rather than questioning the party size.
 
-### Citation
+**Training-data date anchoring (sess_5b15f210c149, sess_27ba0e78f865).** After the verify_args hook forced the executor to call `get_weather`, all three model configurations called it with dates from 2023 (2023-10-15 or 2023-10-17) despite the task prompt specifying `date: 2026-04-25`. The model potentially had a strong prior from training data that overrode the in-context instruction. This was only fixed in iteration 2 by injecting the available fixture dates into the tool description itself, making the correct date the path of least resistance.
 
-- sessions/sess_a382a2149fc1/logs/tickets/tk_*/raw_output.json
-- sessions/sess_a382a2149fc1/logs/trace.jsonl:23
+### Citations
+
+- `sessions/sess_9340a75c968f/logs/trace.jsonl` lines 3-5 - omission + hallucination
+- `sessions/sess_0c0714c2793d/logs/trace.jsonl` lines 3-8 - five-call spiral
+- `sessions/sess_9340a75c968f/logs/tickets/tk_ae317358/state.json` - ticket marked success despite no tool data
 
 ---
 
-## Q2 — Dataflow integrity catch
+## Q2 - Dataflow integrity catch
 
 ### Your answer
 
-During Ex5 development my integrity check caught a subtle fabrication
-that manual review missed. In session sess_de44a1b8eb12 the flyer
-claimed "Total: £560" and "Deposit: £112" — plausible numbers that
-followed the deposit formula in catering.json. I skimmed and moved on.
+The check exposed a real structural weakness before it caught any fabricated values.
 
-verify_dataflow returned ok=False with unverified_facts=['£560','£112'].
-The trace showed calculate_cost returned total_gbp=540, deposit=0. The
-real total was £540 under the £300 deposit threshold. The LLM had
-written "£560" plausibly — close enough that a human reviewer wouldn't
-notice without cross-referencing.
+In sess_9340a75c968f the flyer was fully hallucinated but `verify_dataflow` returned `ok=True`. The reason: `fact_appears_in_log` scans both `r.output` and `r.arguments` for every tool call record. When `generate_flyer` is called it logs its own `event_details` dict as the `arguments` field of the record. Every fact the flyer contains - "£150", "18C", "123 Main St" - is present verbatim in `generate_flyer`'s own log entry. The check found all of them and passed. The values are self-verifying. A human reading the flyer would notice "2023-10-15" is a strange date for a 2026 booking; the automated check did not.
 
-The check caught it because it compared against ground truth in
-_TOOL_CALL_LOG, not against "does this look reasonable." The lesson
-generalises: if the validator would pass a human skim, plant a
-deliberately-weird value like £9999 and confirm it's caught.
+The grader's planted-fabrication test still works correctly, and I confirmed this. A grader editing `flyer.html` directly to insert `£9999` does not produce a corresponding tool call record, so `fact_appears_in_log` finds no record containing `9999` and `verify_dataflow` returns `ok=False` with `unverified_facts=["£9999"]`. The distinction is: the self-verification weakness only applies to values that the model itself passed through a tool call. Values inserted without any tool call - exactly what a grader would do - are correctly caught.
 
-### Citation
+The practical fix for the self-verification gap is the `verify_args` hooks on `generate_flyer`, which block the call unless upstream tools have run first and the address matches a real venue_search result. This does not fix `verify_dataflow` itself but it prevents the scenario: if `generate_flyer` can only be called with values that originated in real tool outputs, self-verification is no longer a weakness. Session sess_ea380b4df4f4 shows this working: `generate_flyer` was rejected twice (lines 4 and 7 of the trace) before the model retrieved real data and the third call succeeded.
 
-- sessions/sess_de44a1b8eb12/workspace/flyer.md:12
-- sessions/sess_de44a1b8eb12/logs/trace.jsonl:15
+### Citations
+
+- `sessions/sess_9340a75c968f/logs/trace.jsonl` line 4 - generate_flyer with hallucinated args that passed verify_dataflow
+- `sessions/sess_ea380b4df4f4/logs/trace.jsonl` lines 4, 7 - verify_args rejections; line 9 - success after real data retrieved
+- `starter/edinburgh_research/integrity.py` - `fact_appears_in_log` scans `r.arguments`, which is the root of the self-verification weakness
 
 ---
 
-## Q3 — Removing one framework primitive
+## Q3 - Removing one framework primitive
 
 ### Your answer
 
-I'd keep session directories (Decision 1) as the last thing standing
-and rebuild everything else if forced. The forward-only state machine
-(Decision 2) is important but fragile without directories. Tickets
-(Decision 3) I could rebuild as .jsonl files inside the session.
-Atomic-rename IPC (Decision 5) is replaceable by directory polling.
-
-Session directories are the irreplaceable piece. Losing them:
-cross-tenant data leaks, reconstructing per-run state from logs,
-"how did this session end up this way" becomes SQL archaeology
-instead of cat. The slides compare it to git commits being the
-foundation — you can rebuild merge, diff, blame from commits but
-not commits from the rest. Session directories are commits.
-
-### Citation
-
-- sessions/sess_de44a1b8eb12/ — the directory itself
-- sessions/sess_a382a2149fc1/logs/trace.jsonl
+I would drop Ex6. The Rasa integration is the most setup-heavy exercise for what it teaches. Most of the implementation is boilerplate, and too docused on Rasa specifics rather than general principles. 
