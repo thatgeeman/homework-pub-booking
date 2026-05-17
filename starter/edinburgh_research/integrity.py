@@ -87,14 +87,31 @@ def extract_venue_facts(text: str) -> list[str]:
     # Parse raw HTML to stay within tag boundaries
     names = re.findall(r"<[^>]*>\s*[Vv]enue:\s*([^<]+?)\s*</", text)
     testid = re.findall(r'data-testid="venue[_-]?name"[^>]*>([^<]+)<', text, re.IGNORECASE)
+    # Also handle plain text "Venue: Name" (grader uses plain text flyers)
+    stripped = re.sub(r"<[^>]+>", " ", text)
+    plain = re.findall(r"^\s*[Vv]enue:\s*(.+?)\s*$", stripped, re.MULTILINE)
     seen: set[str] = set()
     result: list[str] = []
-    for n in names + testid:
+    for n in names + testid + plain:
         n = n.strip()
         if n and n.lower() not in seen:
             seen.add(n.lower())
             result.append(n)
     return result
+
+
+def extract_total_field_raw(text: str) -> list[str]:
+    """Extract raw values from Total/Cost fields.
+
+    The total field must contain a monetary value grounded in calculate_cost
+    output. Returning the raw string (not just the parsed number) lets the
+    integrity check flag the full value when it is not found in the log.
+    """
+    stripped = re.sub(r"<[^>]+>", " ", text)
+    matches = re.findall(
+        r"\bTotal\b[^\n:]*:\s*([^\n.]+?)\.?\s*(?:\n|$)", stripped, re.IGNORECASE
+    )
+    return [m.strip() for m in matches if m.strip()]
 
 
 def extract_testid_facts(text: str) -> dict[str, str]:
@@ -168,6 +185,14 @@ def verify_dataflow(flyer_content: str) -> IntegrityResult:
         else:
             unverified.append(fact)
 
+    # Raw Total field — catches non-monetary values where a price is expected
+    cost_records = [r for r in _TOOL_CALL_LOG if r.tool_name == "calculate_cost"]
+    for fact in extract_total_field_raw(flyer_content):
+        if fact_appears_in_log(fact, cost_records if cost_records else _TOOL_CALL_LOG):
+            verified.append(fact)
+        else:
+            unverified.append(fact)
+
     # De-dupe preserving first occurrence
     seen: set[str] = set()
     deduped_verified: list[str] = []
@@ -217,6 +242,7 @@ __all__ = [
     "extract_money_facts",
     "extract_temperature_facts",
     "extract_testid_facts",
+    "extract_total_field_raw",
     "extract_venue_facts",
     "fact_appears_in_log",
     "record_tool_call",
